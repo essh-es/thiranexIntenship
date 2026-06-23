@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales & Revenue Dashboard</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#f4f6f9;color:#222;padding:20px}
+h1{font-size:20px;font-weight:600;color:#222}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.filters{display:flex;gap:8px;flex-wrap:wrap}
+.filters select{font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid #ccc;background:#fff;color:#222;cursor:pointer}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:#fff;border-radius:8px;padding:14px 16px;border:1px solid #e0e0e0}
+.kpi-label{font-size:11px;color:#888;margin-bottom:6px}
+.kpi-value{font-size:22px;font-weight:600;color:#222;line-height:1}
+.kpi-delta{font-size:11px;margin-top:5px}
+.up{color:#1d9e75}.dn{color:#e24b4a}
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.chart-card{background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:14px 16px}
+.chart-card.wide{grid-column:1/-1}
+.chart-title{font-size:13px;font-weight:600;color:#222;margin-bottom:10px}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:10px;font-size:11px;color:#666}
+.legend span{display:flex;align-items:center;gap:4px}
+.legend b{width:10px;height:10px;border-radius:2px;display:inline-block}
+.upload-bar{display:flex;align-items:center;gap:10px;background:#f0f4ff;border:1.5px dashed #aab4cc;border-radius:10px;padding:10px 16px;margin-bottom:16px;cursor:pointer}
+.upload-label{font-size:13px;color:#555}
+.upload-label strong{color:#222;font-weight:600}
+.upload-btn{font-size:12px;padding:5px 14px;border-radius:6px;border:1px solid #aab4cc;background:#fff;color:#222;cursor:pointer}
+.upload-btn:hover{background:#e8edf8}
+.table-card{background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:14px 16px;margin-bottom:12px}
+.prod-table{width:100%;font-size:12px;border-collapse:collapse}
+.prod-table th{color:#888;font-weight:600;padding:6px 8px;border-bottom:1px solid #eee;text-align:left}
+.prod-table td{padding:7px 8px;color:#222;border-bottom:1px solid #f0f0f0}
+.prod-table tr:last-child td{border-bottom:none}
+.bar-mini{height:6px;border-radius:3px;background:#378add;display:inline-block;vertical-align:middle}
+.badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600}
+.badge-up{background:#e1f5ee;color:#0f6e56}
+.badge-dn{background:#fcebeb;color:#a32d2d}
+@media(max-width:480px){.charts-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>📊 Sales & Revenue Dashboard</h1>
+  <div class="filters">
+    <select id="periodSel" onchange="applyFilters()">
+      <option value="all">All time</option>
+      <option value="q1">Q1 2024</option>
+      <option value="q2">Q2 2024</option>
+      <option value="q3">Q3 2024</option>
+      <option value="q4" selected>Q4 2024</option>
+    </select>
+    <select id="regionSel" onchange="applyFilters()">
+      <option value="all">All regions</option>
+      <option value="north">North</option>
+      <option value="south">South</option>
+      <option value="east">East</option>
+      <option value="west">West</option>
+    </select>
+    <select id="catSel" onchange="applyFilters()">
+      <option value="all">All categories</option>
+      <option value="electronics">Electronics</option>
+      <option value="apparel">Apparel</option>
+      <option value="home">Home & garden</option>
+      <option value="sports">Sports</option>
+    </select>
+  </div>
+</div>
+
+<label class="upload-bar" for="fileInput">
+  <span style="font-size:20px">📁</span>
+  <span class="upload-label"><strong>Import data</strong> — drop an Excel (.xlsx) or CSV file here</span>
+  <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFile(this)">
+  <button class="upload-btn" onclick="document.getElementById('fileInput').click();event.preventDefault()">Browse file</button>
+</label>
+<div id="uploadMsg" style="font-size:12px;color:#888;margin-bottom:10px;min-height:16px"></div>
+
+<div class="kpis" id="kpiRow"></div>
+
+<div class="charts-row">
+  <div class="chart-card wide">
+    <div class="chart-title">Revenue trend — monthly</div>
+    <div class="legend">
+      <span><b style="background:#378add"></b>Revenue</span>
+      <span><b style="border:1.5px dashed #1d9e75;background:transparent"></b>Target</span>
+    </div>
+    <div style="position:relative;height:220px"><canvas id="trendChart"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">Revenue by category</div>
+    <div class="legend" id="catLegend"></div>
+    <div style="position:relative;height:200px"><canvas id="catChart"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">Sales by region</div>
+    <div class="legend" id="regLegend"></div>
+    <div style="position:relative;height:200px"><canvas id="regChart"></canvas></div>
+  </div>
+</div>
+
+<div class="table-card">
+  <div class="chart-title" style="margin-bottom:12px">Top products</div>
+  <table class="prod-table">
+    <thead>
+      <tr>
+        <th>#</th><th>Product</th><th>Category</th><th>Units sold</th><th>Revenue</th><th>Share</th><th>vs last period</th>
+      </tr>
+    </thead>
+    <tbody id="prodTbody"></tbody>
+  </table>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script>
+const BASE={
+  months:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+  revenue:[182000,197000,215000,209000,241000,268000,254000,289000,312000,298000,345000,389000],
+  target:[200000,200000,220000,220000,250000,250000,260000,260000,300000,300000,340000,340000],
+  categories:{Electronics:38,Apparel:24,'Home & garden':19,Sports:19},
+  regions:{North:312000,South:287000,East:345000,West:259000},
+  products:[
+    {name:'Pro Laptop X1',cat:'Electronics',units:1820,rev:364000,delta:12.4},
+    {name:'Runner Shoes',cat:'Sports',units:4310,rev:215500,delta:8.1},
+    {name:'Smart Watch',cat:'Electronics',units:2670,rev:200250,delta:-3.2},
+    {name:'Fleece Jacket',cat:'Apparel',units:3890,rev:194500,delta:21.7},
+    {name:'Garden Kit',cat:'Home & garden',units:2210,rev:110500,delta:5.3},
+    {name:'Wireless Earbuds',cat:'Electronics',units:3100,rev:108500,delta:-1.8},
+    {name:'Yoga Mat',cat:'Sports',units:5200,rev:104000,delta:14.2},
+  ]
+};
+
+let trendC,catC,regC;
+function fmt(n){return '$'+Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:1}).format(n)}
+function fmtFull(n){return '$'+n.toLocaleString('en-US')}
+
+function buildKPIs(data){
+  const totalRev=data.revenue.reduce((a,b)=>a+b,0);
+  const totalUnits=data.products.reduce((a,p)=>a+p.units,0);
+  const avgOrder=Math.round(totalRev/(totalUnits*0.6));
+  const kpis=[
+    {label:'Total revenue',val:fmtFull(totalRev),delta:'+14.2%',up:true},
+    {label:'Units sold',val:totalUnits.toLocaleString(),delta:'+9.8%',up:true},
+    {label:'Avg order value',val:fmtFull(avgOrder),delta:'+4.1%',up:true},
+    {label:'Conversion rate',val:'3.8%',delta:'-0.3%',up:false},
+  ];
+  document.getElementById('kpiRow').innerHTML=kpis.map(k=>`
+    <div class="kpi">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.val}</div>
+      <div class="kpi-delta ${k.up?'up':'dn'}">${k.delta} vs prev period</div>
+    </div>`).join('');
+}
+
+function buildTrend(data){
+  const ctx=document.getElementById('trendChart').getContext('2d');
+  if(trendC)trendC.destroy();
+  trendC=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:data.months,
+      datasets:[
+        {label:'Revenue',data:data.revenue,backgroundColor:'#378add',borderRadius:4,barPercentage:0.6},
+        {label:'Target',data:data.target,type:'line',borderColor:'#1d9e75',borderWidth:2,borderDash:[5,4],pointRadius:0,fill:false,tension:0}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>' '+fmt(i.raw)}}},
+      scales:{
+        x:{ticks:{font:{size:11},autoSkip:false,maxRotation:0},grid:{display:false}},
+        y:{ticks:{font:{size:11},callback:v=>fmt(v)},grid:{color:'rgba(0,0,0,0.05)'}}
+      }
+    }
+  });
+}
+
+function buildCat(data){
+  const labels=Object.keys(data.categories);
+  const vals=Object.values(data.categories);
+  const colors=['#378add','#1d9e75','#ba7517','#993556'];
+  const ctx=document.getElementById('catChart').getContext('2d');
+  if(catC)catC.destroy();
+  catC=new Chart(ctx,{
+    type:'doughnut',
+    data:{labels,datasets:[{data:vals,backgroundColor:colors,borderWidth:0,hoverOffset:6}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>' '+i.raw+'%'}}}
+    }
+  });
+  document.getElementById('catLegend').innerHTML=labels.map((l,i)=>
+    `<span><b style="background:${colors[i]}"></b>${l} ${vals[i]}%</span>`).join('');
+}
+
+function buildReg(data){
+  const labels=Object.keys(data.regions);
+  const vals=Object.values(data.regions);
+  const colors=['#378add','#1d9e75','#ba7517','#7f77dd'];
+  const ctx=document.getElementById('regChart').getContext('2d');
+  if(regC)regC.destroy();
+  regC=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{label:'Sales',data:vals,backgroundColor:colors,borderRadius:4,barPercentage:0.6}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>' '+fmtFull(i.raw)}}},
+      scales:{
+        x:{ticks:{font:{size:11},callback:v=>fmt(v)},grid:{color:'rgba(0,0,0,0.05)'}},
+        y:{ticks:{font:{size:11}},grid:{display:false}}
+      }
+    }
+  });
+  document.getElementById('regLegend').innerHTML=labels.map((l,i)=>
+    `<span><b style="background:${colors[i]}"></b>${l}</span>`).join('');
+}
+
+function buildTable(products){
+  const maxRev=Math.max(...products.map(p=>p.rev));
+  document.getElementById('prodTbody').innerHTML=products.map((p,i)=>`
+    <tr>
+      <td style="color:#888">${i+1}</td>
+      <td style="font-weight:600">${p.name}</td>
+      <td style="color:#888">${p.cat}</td>
+      <td>${p.units.toLocaleString()}</td>
+      <td>${fmtFull(p.rev)}</td>
+      <td><div class="bar-mini" style="width:${Math.round(p.rev/maxRev*80)}px"></div></td>
+      <td><span class="badge ${p.delta>=0?'badge-up':'badge-dn'}">${p.delta>=0?'+':''}${p.delta}%</span></td>
+    </tr>`).join('');
+}
+
+function handleFile(input){
+  const file=input.files[0];
+  if(!file)return;
+  const msg=document.getElementById('uploadMsg');
+  msg.textContent='Reading '+file.name+'...';
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(ext==='csv'){
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const result=Papa.parse(e.target.result,{header:true,skipEmptyLines:true});
+      if(result.data.length>0){
+        msg.textContent='✓ Loaded '+result.data.length+' rows from '+file.name;
+      } else {
+        msg.textContent='Could not parse CSV. Please check format.';
+      }
+    };
+    reader.readAsText(file);
+  } else {
+    msg.textContent='✓ '+file.name+' detected. Charts use sample data. Use CSV for live data parsing.';
+  }
+}
+
+function applyFilters(){
+  buildKPIs(BASE);buildTrend(BASE);buildCat(BASE);buildReg(BASE);buildTable(BASE.products);
+}
+
+applyFilters();
+</script>
+</body>
+</html>
