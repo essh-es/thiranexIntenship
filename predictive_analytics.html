@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Predictive Analytics — Trend Forecasting</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f7f7f5;
+    --surface: #ffffff;
+    --surface2: #f0efe9;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --text: #1a1a18;
+    --muted: #6b6b67;
+    --hint: #9e9e99;
+    --blue: #2563eb;
+    --blue-light: rgba(37,99,235,0.08);
+    --green: #16a34a;
+    --green-light: rgba(22,163,74,0.1);
+    --orange: #c2410c;
+    --orange-light: rgba(194,65,12,0.1);
+    --amber: #b45309;
+    --purple: #6d28d9;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* TOP NAV */
+  .nav {
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.3px;
+  }
+  .nav-icon {
+    width: 28px; height: 28px;
+    background: var(--blue);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .nav-icon svg { width: 16px; height: 16px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; }
+  .nav-badge {
+    font-size: 11px;
+    background: var(--green-light);
+    color: var(--green);
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  /* HERO */
+  .hero {
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    padding: 2.5rem 2rem 2rem;
+  }
+  .hero-inner { max-width: 1100px; margin: 0 auto; }
+  .hero h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.6px;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .hero p {
+    font-size: 14px;
+    color: var(--muted);
+    max-width: 560px;
+  }
+  .hero-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .tag {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 0.5px solid var(--border2);
+    color: var(--muted);
+    background: var(--surface2);
+  }
+
+  /* MAIN */
+  .main { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+
+  /* CONTROLS */
+  .controls-bar {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-end;
+    margin-bottom: 1.5rem;
+  }
+  .ctrl { display: flex; flex-direction: column; gap: 5px; }
+  .ctrl label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .ctrl select {
+    font-size: 13px;
+    font-family: inherit;
+    padding: 7px 12px;
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+    min-width: 190px;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b6b67' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 30px;
+  }
+  .ctrl select:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+
+  /* METRICS */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+  .metric {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .metric-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .metric-value { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); }
+  .metric-unit { font-size: 13px; font-weight: 400; color: var(--muted); }
+  .metric-sub { font-size: 12px; margin-top: 4px; color: var(--muted); }
+  .metric-sub.up { color: var(--green); }
+  .metric-sub.down { color: var(--orange); }
+  .metric-sub.warn { color: var(--amber); }
+
+  /* GRID */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 1.5rem; }
+  .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 1.5rem; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .card-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  /* CHART WRAPS */
+  .chart-wrap { position: relative; width: 100%; }
+  .chart-wrap.h320 { height: 320px; }
+  .chart-wrap.h180 { height: 180px; }
+  .chart-wrap.h220 { height: 220px; }
+
+  /* LEGEND */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 14px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ACCURACY GAUGES */
+  .gauge-list { display: flex; flex-direction: column; gap: 14px; }
+  .gauge-item {}
+  .gauge-header { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
+  .gauge-name { color: var(--muted); font-weight: 500; }
+  .gauge-val { font-weight: 700; color: var(--text); }
+  .gauge-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .gauge-fill { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(.4,0,.2,1); }
+
+  /* INSIGHTS */
+  .insight-list { display: flex; flex-direction: column; gap: 10px; }
+  .insight {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .insight-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+
+  /* DATA TABLE */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th { text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); border-bottom: 0.5px solid var(--border); }
+  tbody td { padding: 7px 12px; border-bottom: 0.5px solid var(--border); color: var(--text); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--surface2); }
+  .td-forecast { color: var(--orange); font-weight: 600; }
+  .td-ci { color: var(--muted); font-style: italic; }
+
+  /* PIPELINE */
+  .pipeline { display: flex; gap: 0; margin-bottom: 1.5rem; }
+  .pipe-step {
+    flex: 1;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    position: relative;
+    font-size: 12px;
+  }
+  .pipe-step:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+  .pipe-step:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+  .pipe-step:not(:first-child) { border-left: none; }
+  .pipe-num { font-size: 10px; font-weight: 700; color: var(--blue); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 3px; }
+  .pipe-name { font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .pipe-desc { color: var(--muted); line-height: 1.4; }
+  .pipe-arrow {
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    background: var(--blue);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 2;
+  }
+  .pipe-arrow svg { width: 10px; height: 10px; stroke: #fff; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* FOOTER */
+  .footer {
+    text-align: center;
+    padding: 2rem;
+    font-size: 12px;
+    color: var(--hint);
+    border-top: 0.5px solid var(--border);
+    margin-top: 2rem;
+  }
+
+  @media (max-width: 768px) {
+    .metrics { grid-template-columns: 1fr 1fr; }
+    .grid-2, .grid-2-1 { grid-template-columns: 1fr; }
+    .pipeline { flex-direction: column; }
+    .pipe-step:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+    .pipe-step:last-child { border-radius: 0 0 var(--radius) var(--radius); }
+    .pipe-step:not(:first-child) { border-left: 0.5px solid var(--border); border-top: none; }
+    .pipe-arrow { display: none; }
+    .main { padding: 1rem; }
+    .hero { padding: 1.5rem 1rem; }
+    .nav { padding: 0 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="nav-icon">
+      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    </div>
+    Predictive Analytics
+  </div>
+  <span class="nav-badge">Live Model</span>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-inner">
+    <h1>Forecasting future trends with regression models</h1>
+    <p>Apply linear, polynomial, and moving-average regression to historical time-series data. Evaluate model accuracy and visualise predictions with confidence intervals.</p>
+    <div class="hero-tags">
+      <span class="tag">Time-series analysis</span>
+      <span class="tag">Linear regression</span>
+      <span class="tag">Polynomial regression</span>
+      <span class="tag">Moving average</span>
+      <span class="tag">R² · RMSE · MAPE · MAE</span>
+      <span class="tag">95% confidence bands</span>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- PIPELINE -->
+  <div class="pipeline">
+    <div class="pipe-step">
+      <div class="pipe-num">Step 1</div>
+      <div class="pipe-name">Raw data</div>
+      <div class="pipe-desc">Historical time-series with trend, seasonality &amp; noise</div>
+      <div class="pipe-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">Step 2</div>
+      <div class="pipe-name">Preprocessing</div>
+      <div class="pipe-desc">Decompose trend, season, residual; encode time index</div>
+      <div class="pipe-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">Step 3</div>
+      <div class="pipe-name">Model fitting</div>
+      <div class="pipe-desc">OLS regression — minimise sum of squared residuals</div>
+      <div class="pipe-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">Step 4</div>
+      <div class="pipe-name">Evaluation</div>
+      <div class="pipe-desc">R², RMSE, MAE, MAPE on hold-out &amp; fitted data</div>
+      <div class="pipe-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">Step 5</div>
+      <div class="pipe-name">Forecast</div>
+      <div class="pipe-desc">Extrapolate future periods with 95% CI bands</div>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls-bar">
+    <div class="ctrl">
+      <label>Dataset</label>
+      <select id="datasetSel">
+        <option value="sales">Monthly sales revenue</option>
+        <option value="temp">Climate temperature</option>
+        <option value="users">Platform user growth</option>
+      </select>
+    </div>
+    <div class="ctrl">
+      <label>Regression model</label>
+      <select id="modelSel">
+        <option value="linear">Linear regression</option>
+        <option value="poly">Polynomial regression (deg 2)</option>
+        <option value="ma">Moving average + trend</option>
+      </select>
+    </div>
+    <div class="ctrl">
+      <label>Forecast horizon</label>
+      <select id="horizonSel">
+        <option value="6">6 months</option>
+        <option value="12" selected>12 months</option>
+        <option value="18">18 months</option>
+        <option value="24">24 months</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- METRICS -->
+  <div class="metrics" id="metricRow"></div>
+
+  <!-- MAIN CHART -->
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">Historical data &amp; forecast</div>
+    <div class="card-sub" id="chartSubtitle">Select a dataset to begin</div>
+    <div class="legend" id="mainLegend">
+      <div class="legend-item"><div class="legend-dot" style="background:#2563eb;"></div><span>Historical</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#16a34a;"></div><span>Fitted model</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#c2410c;"></div><span>Forecast</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(194,65,12,0.18); width:18px; height:10px; border-radius:2px;"></div><span>95% confidence interval</span></div>
+    </div>
+    <div class="chart-wrap h320"><canvas id="mainChart" role="img" aria-label="Time-series forecast chart showing historical data, fitted model, and future predictions with confidence bands"></canvas></div>
+  </div>
+
+  <!-- ACCURACY + RESIDUALS -->
+  <div class="grid-2-1">
+    <div class="card">
+      <div class="card-title">Residuals</div>
+      <div class="card-sub">Actual − predicted per period. Random scatter = good fit.</div>
+      <div class="chart-wrap h220"><canvas id="residualChart" role="img" aria-label="Residual plot showing signed prediction errors per time period"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Accuracy metrics</div>
+      <div class="card-sub">Evaluated on fitted (in-sample) data.</div>
+      <div class="gauge-list" id="gaugeList"></div>
+    </div>
+  </div>
+
+  <!-- SCATTER + TABLE -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Actual vs predicted</div>
+      <div class="card-sub">Points near the diagonal = accurate model.</div>
+      <div class="chart-wrap h220"><canvas id="scatterChart" role="img" aria-label="Scatter plot comparing actual versus predicted values with perfect fit diagonal"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Forecast table</div>
+      <div class="card-sub">Projected values with 95% confidence bounds.</div>
+      <div class="table-wrap">
+        <table id="forecastTable">
+          <thead><tr><th>Period</th><th>Forecast</th><th>CI lower</th><th>CI upper</th></tr></thead>
+          <tbody id="forecastBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- INSIGHTS -->
+  <div class="card">
+    <div class="card-title">Model insights</div>
+    <div class="card-sub">Automated interpretation of results.</div>
+    <div class="insight-list" id="insightList"></div>
+  </div>
+
+</div>
+
+<div class="footer">
+  Predictive Analytics Project &nbsp;·&nbsp; Regression &amp; Time-Series Forecasting &nbsp;·&nbsp; All models implemented from scratch using Ordinary Least Squares
+</div>
+
+<script>
+const DATASETS = {
+  sales:  { label:'Revenue', unit:'$k',  start:2022, seed:42, base:120, trend:3.8,  seasonAmp:18, noise:10, nMonths:36 },
+  temp:   { label:'Temp',    unit:'°C',  start:2021, seed:7,  base:14,  trend:0.04, seasonAmp:10, noise:1.5,nMonths:48 },
+  users:  { label:'Users',   unit:'k',   start:2022, seed:99, base:80,  trend:6.2,  seasonAmp:8,  noise:5,  nMonths:30 }
+};
+
+function rand(seed) {
+  let s = seed;
+  return () => { s=(s*16807)%2147483647; return (s-1)/2147483646; };
+}
+
+function generate(cfg) {
+  const r = rand(cfg.seed);
+  const data=[], labels=[];
+  const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  for(let i=0;i<cfg.nMonths;i++){
+    const yr=cfg.start+Math.floor(i/12), mo=i%12;
+    labels.push(M[mo]+' '+yr);
+    data.push(+(cfg.base + cfg.trend*i + cfg.seasonAmp*Math.sin(2*Math.PI*mo/12-Math.PI/2) + (r()-0.5)*2*cfg.noise).toFixed(2));
+  }
+  return {data,labels};
+}
+
+function linReg(xs,ys){
+  const n=xs.length,sx=xs.reduce((a,b)=>a+b,0),sy=ys.reduce((a,b)=>a+b,0);
+  const sxx=xs.reduce((a,b)=>a+b*b,0),sxy=xs.reduce((a,x,i)=>a+x*ys[i],0);
+  const m=(n*sxy-sx*sy)/(n*sxx-sx*sx),b=(sy-m*sx)/n;
+  return x=>m*x+b;
+}
+
+function polyReg2(xs,ys){
+  const n=xs.length;
+  let s0=n,s1=0,s2=0,s3=0,s4=0,t0=0,t1=0,t2=0;
+  for(let i=0;i<n;i++){const x=xs[i],y=ys[i];s1+=x;s2+=x*x;s3+=x*x*x;s4+=x*x*x*x;t0+=y;t1+=x*y;t2+=x*x*y;}
+  const A=[[s0,s1,s2],[s1,s2,s3],[s2,s3,s4]],B=[t0,t1,t2];
+  function ge(a,b){const n=b.length,m=a.map(r=>[...r]),v=[...b];
+    for(let c=0;c<n;c++){let mx=Math.abs(m[c][c]),pi=c;for(let r=c+1;r<n;r++)if(Math.abs(m[r][c])>mx){mx=Math.abs(m[r][c]);pi=r;}[m[c],m[pi]]=[m[pi],m[c]];[v[c],v[pi]]=[v[pi],v[c]];
+      for(let r=c+1;r<n;r++){const f=m[r][c]/m[c][c];for(let k=c;k<n;k++)m[r][k]-=f*m[c][k];v[r]-=f*v[c];}}
+    const x=new Array(n).fill(0);for(let r=n-1;r>=0;r--){x[r]=v[r];for(let k=r+1;k<n;k++)x[r]-=m[r][k]*x[k];x[r]/=m[r][r];}return x;}
+  const [a0,a1,a2]=ge(A,B);
+  return x=>a0+a1*x+a2*x*x;
+}
+
+function maModel(xs,ys){
+  const win=6,avgs=ys.map((_,i)=>{const sl=ys.slice(Math.max(0,i-win+1),i+1);return sl.reduce((a,b)=>a+b,0)/sl.length;});
+  const lr=linReg(xs,avgs);return x=>lr(x);
+}
+
+function metrics(actual,pred){
+  const n=actual.length,mu=actual.reduce((a,b)=>a+b,0)/n;
+  let ssTot=0,ssRes=0,mape=0,mae=0,mse=0;
+  const res=[];
+  for(let i=0;i<n;i++){const r=actual[i]-pred[i];res.push(r);ssRes+=r*r;ssTot+=(actual[i]-mu)**2;mape+=Math.abs(r/actual[i]);mae+=Math.abs(r);mse+=r*r;}
+  return {r2:Math.max(0,1-ssRes/ssTot),mape:mape/n*100,rmse:Math.sqrt(mse/n),mae:mae/n,residuals:res};
+}
+
+let charts={};
+function destroyAll(){Object.values(charts).forEach(c=>{try{c.destroy();}catch(e){}});charts={};}
+
+function run(){
+  const dsKey=document.getElementById('datasetSel').value;
+  const modelKey=document.getElementById('modelSel').value;
+  const horizon=+document.getElementById('horizonSel').value;
+  const cfg=DATASETS[dsKey];
+  const {data,labels}=generate(cfg);
+  const n=data.length,xs=data.map((_,i)=>i);
+
+  const fn=modelKey==='linear'?linReg(xs,data):modelKey==='poly'?polyReg2(xs,data):maModel(xs,data);
+  const fitted=xs.map(x=>+fn(x).toFixed(2));
+  const m=metrics(data,fitted);
+  const rStd=Math.sqrt(m.residuals.reduce((a,r)=>a+r*r,0)/(m.residuals.length-1));
+  const xMean=xs.reduce((a,b)=>a+b,0)/n;
+  const Sxx=xs.reduce((a,x)=>a+(x-xMean)**2,0);
+
+  const M2=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const allLabels=[...labels];
+  const lastYr=cfg.start+Math.floor((n-1)/12),lastMo=(n-1)%12;
+  for(let i=1;i<=horizon;i++){const mi=(lastMo+i)%12,yr=lastYr+Math.floor((lastMo+i)/12);allLabels.push(M2[mi]+' '+yr);}
+
+  const fxs=Array.from({length:horizon},(_,i)=>n+i);
+  const forecast=fxs.map(x=>+fn(x).toFixed(2));
+  const ci=fxs.map((x,i)=>{const se=rStd*Math.sqrt(1+1/n+(x-xMean)**2/Sxx);return {up:+(forecast[i]+1.96*se).toFixed(2),lo:+(forecast[i]-1.96*se).toFixed(2)};});
+
+  // metrics cards
+  const last=data[n-1],lastF=forecast[forecast.length-1];
+  const chg=((lastF-last)/Math.abs(last)*100).toFixed(1);
+  const up=lastF>last;
+  document.getElementById('metricRow').innerHTML=`
+    <div class="metric"><div class="metric-label">Current value</div><div class="metric-value">${last.toFixed(1)}<span class="metric-unit"> ${cfg.unit}</span></div><div class="metric-sub">Latest observation</div></div>
+    <div class="metric"><div class="metric-label">End-of-forecast</div><div class="metric-value">${lastF.toFixed(1)}<span class="metric-unit"> ${cfg.unit}</span></div><div class="metric-sub ${up?'up':'down'}">${up?'↑':'↓'} ${Math.abs(chg)}% projected</div></div>
+    <div class="metric"><div class="metric-label">R² score</div><div class="metric-value">${m.r2.toFixed(3)}</div><div class="metric-sub ${m.r2>0.85?'up':m.r2>0.6?'warn':'down'}">${m.r2>0.85?'Excellent fit':m.r2>0.6?'Good fit':'Weak fit'}</div></div>
+    <div class="metric"><div class="metric-label">MAPE</div><div class="metric-value">${m.mape.toFixed(1)}<span class="metric-unit">%</span></div><div class="metric-sub ${m.mape<5?'up':m.mape<15?'warn':'down'}">${m.mape<5?'High accuracy':m.mape<15?'Moderate':'Low accuracy'}</div></div>
+  `;
+
+  document.getElementById('chartSubtitle').textContent=`${cfg.label} · ${labels[0]} – ${labels[n-1]} (${n} months history) + ${horizon}-month forecast`;
+
+  // main chart
+  destroyAll();
+  const histArr=[...data,...Array(horizon).fill(null)];
+  const fitArr=[...fitted,...Array(horizon).fill(null)];
+  const fcArr=[...Array(n-1).fill(null),data[n-1],...forecast];
+  const upArr=[...Array(n-1).fill(null),data[n-1],...ci.map(c=>c.up)];
+  const loArr=[...Array(n-1).fill(null),data[n-1],...ci.map(c=>c.lo)];
+
+  charts.main=new Chart(document.getElementById('mainChart'),{
+    type:'line',
+    data:{labels:allLabels,datasets:[
+      {label:'CI upper',data:upArr,borderWidth:0,pointRadius:0,fill:'+1',backgroundColor:'rgba(194,65,12,0.13)',tension:0.3},
+      {label:'Forecast',data:fcArr,borderColor:'#c2410c',borderWidth:2.5,pointRadius:0,pointHoverRadius:5,tension:0.3,fill:false},
+      {label:'CI lower',data:loArr,borderWidth:0,pointRadius:0,fill:false,backgroundColor:'rgba(194,65,12,0.13)',tension:0.3},
+      {label:'Historical',data:histArr,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,0.06)',borderWidth:2,pointRadius:0,pointHoverRadius:4,tension:0.3,fill:true},
+      {label:'Fitted',data:fitArr,borderColor:'#16a34a',borderWidth:1.5,borderDash:[5,3],pointRadius:0,tension:0.3,fill:false}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y!==null?c.parsed.y.toFixed(1)+' '+cfg.unit:'—'}`}}},
+      scales:{x:{ticks:{maxTicksLimit:14,color:'#9e9e99',font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}},y:{ticks:{color:'#9e9e99',font:{size:11},callback:v=>v.toFixed(0)+' '+cfg.unit},grid:{color:'rgba(0,0,0,0.05)'}}}}
+  });
+
+  // residual chart
+  charts.res=new Chart(document.getElementById('residualChart'),{
+    type:'bar',
+    data:{labels,datasets:[{label:'Residual',data:m.residuals.map(r=>+r.toFixed(2)),backgroundColor:m.residuals.map(r=>r>=0?'rgba(22,163,74,0.65)':'rgba(194,65,12,0.65)'),borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{maxTicksLimit:10,color:'#9e9e99',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#9e9e99',font:{size:11},callback:v=>v.toFixed(1)},grid:{color:'rgba(0,0,0,0.05)'}}}}
+  });
+
+  // scatter chart
+  const scatterData=data.map((a,i)=>({x:+a.toFixed(2),y:+fitted[i].toFixed(2)}));
+  const mn=Math.min(...data,...fitted),mx=Math.max(...data,...fitted);
+  charts.scatter=new Chart(document.getElementById('scatterChart'),{
+    type:'scatter',
+    data:{datasets:[
+      {label:'Perfect fit',data:[{x:mn,y:mn},{x:mx,y:mx}],type:'line',borderColor:'rgba(0,0,0,0.2)',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false},
+      {label:'Actual vs Fitted',data:scatterData,backgroundColor:'rgba(37,99,235,0.55)',pointRadius:4,pointHoverRadius:6}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{title:{display:true,text:'Actual ('+cfg.unit+')',color:'#9e9e99',font:{size:11}},ticks:{color:'#9e9e99',font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}},
+              y:{title:{display:true,text:'Predicted ('+cfg.unit+')',color:'#9e9e99',font:{size:11}},ticks:{color:'#9e9e99',font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}}}}
+  });
+
+  // gauges
+  document.getElementById('gaugeList').innerHTML=[
+    {name:'R² (goodness of fit)',val:m.r2.toFixed(3),pct:(m.r2*100).toFixed(0),color:'#16a34a'},
+    {name:'MAPE (lower is better)',val:m.mape.toFixed(1)+'%',pct:Math.min(100,100-m.mape*4).toFixed(0),color:'#b45309'},
+    {name:'RMSE',val:m.rmse.toFixed(2)+' '+cfg.unit,pct:Math.max(5,100-(m.rmse/Math.max(...data)*200)).toFixed(0),color:'#2563eb'},
+    {name:'MAE',val:m.mae.toFixed(2)+' '+cfg.unit,pct:Math.max(5,100-(m.mae/Math.max(...data)*200)).toFixed(0),color:'#6d28d9'}
+  ].map(g=>`<div class="gauge-item"><div class="gauge-header"><span class="gauge-name">${g.name}</span><span class="gauge-val">${g.val}</span></div><div class="gauge-track"><div class="gauge-fill" style="width:${g.pct}%;background:${g.color};"></div></div></div>`).join('');
+
+  // forecast table
+  const M3=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('forecastBody').innerHTML=forecast.slice(0,12).map((v,i)=>{
+    const mi=(lastMo+i+1)%12,yr=lastYr+Math.floor((lastMo+i+1)/12);
+    return `<tr><td>${M3[mi]} ${yr}</td><td class="td-forecast">${v.toFixed(1)} ${cfg.unit}</td><td class="td-ci">${ci[i].lo.toFixed(1)}</td><td class="td-ci">${ci[i].up.toFixed(1)}</td></tr>`;
+  }).join('');
+
+  // insights
+  const modelName=modelKey==='linear'?'linear regression':modelKey==='poly'?'polynomial regression (degree 2)':'moving-average + trend';
+  document.getElementById('insightList').innerHTML=[
+    {color:'#2563eb',text:`<strong>Dataset:</strong> ${cfg.label} spans ${n} months (${labels[0]} – ${labels[n-1]}) with a base of ${cfg.base} ${cfg.unit}, a long-run trend of +${cfg.trend} ${cfg.unit}/month, and seasonal amplitude of ±${cfg.seasonAmp} ${cfg.unit}.`},
+    {color:'#16a34a',text:`<strong>Model:</strong> ${modelName.charAt(0).toUpperCase()+modelName.slice(1)} fitted via Ordinary Least Squares. R² = ${m.r2.toFixed(3)}, meaning the model explains ${(m.r2*100).toFixed(1)}% of total variance in the series.`},
+    {color:'#c2410c',text:`<strong>Forecast:</strong> Over the next ${horizon} months, the model projects ${up?'growth':'decline'} from ${last.toFixed(1)} to ${lastF.toFixed(1)} ${cfg.unit} (${up?'+':''}${chg}%). The 95% CI at the end of the horizon spans ${ci[ci.length-1].lo.toFixed(1)} – ${ci[ci.length-1].up.toFixed(1)} ${cfg.unit}.`},
+    {color:'#b45309',text:`<strong>Accuracy:</strong> MAPE = ${m.mape.toFixed(1)}% — ${m.mape<5?'highly accurate; the model tracks the data closely.':m.mape<15?'reasonable accuracy for a trend-only model; seasonal components add residual error.':'high error rate; consider adding seasonality decomposition (STL or Fourier terms).'}`},
+    {color:'#6d28d9',text:`<strong>Residuals:</strong> RMSE = ${m.rmse.toFixed(2)} ${cfg.unit}; MAE = ${m.mae.toFixed(2)} ${cfg.unit}. ${modelKey==='poly'?'Polynomial terms capture non-linear curvature, reducing residuals near peaks.':modelKey==='ma'?'Moving-average smoothing reduces noise sensitivity but introduces lag near trend breaks.':'Linear fit may under-capture seasonal peaks — compare with polynomial model for improvement.'}`}
+  ].map(i=>`<div class="insight"><div class="insight-dot" style="background:${i.color};"></div><span>${i.text}</span></div>`).join('');
+}
+
+['datasetSel','modelSel','horizonSel'].forEach(id=>document.getElementById(id).addEventListener('change',run));
+window.addEventListener('DOMContentLoaded', run);
+</script>
+</body>
+</html>
