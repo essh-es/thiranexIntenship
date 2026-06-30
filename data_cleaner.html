@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Data Cleaning &amp; Reporting Automation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#1c1f1a;
+    --paper:#f6f4ee;
+    --panel:#ffffff;
+    --line:#d8d4c4;
+    --moss:#3f5c45;
+    --moss-dim:#7d9381;
+    --rust:#b5562f;
+    --amber:#c98a2c;
+    --mono: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+    --serif: "Source Serif 4", Georgia, serif;
+    --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,700&display=swap');
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--sans); font-size:14px; line-height:1.5;
+  }
+  .wrap{max-width:1040px; margin:0 auto; padding:40px 24px 80px;}
+
+  header{
+    border-bottom:2px solid var(--ink);
+    padding-bottom:18px; margin-bottom:28px;
+    display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap;
+  }
+  header h1{
+    font-family:var(--serif); font-weight:700; font-size:30px; margin:0 0 4px;
+    letter-spacing:-0.01em;
+  }
+  header p{margin:0; color:#5a5a52; font-size:13px;}
+  .eyebrow{
+    font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--moss); margin:0 0 6px;
+  }
+
+  .dropzone{
+    border:1.5px dashed var(--line); background:var(--panel);
+    border-radius:2px; padding:38px 20px; text-align:center; cursor:pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .dropzone:hover, .dropzone.drag{border-color:var(--moss); background:#fbfaf5;}
+  .dropzone h2{font-family:var(--serif); font-size:19px; margin:0 0 6px; font-weight:600;}
+  .dropzone p{margin:0; color:#6b6b62; font-size:13px;}
+  .dropzone input{display:none;}
+  .dz-icon{font-family:var(--mono); font-size:22px; color:var(--moss-dim); margin-bottom:10px;}
+
+  #app{display:none;}
+  #app.show{display:block;}
+
+  .filebar{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--ink); color:var(--paper); padding:10px 16px; border-radius:2px;
+    font-family:var(--mono); font-size:12px; margin:24px 0 18px;
+  }
+  .filebar button{
+    background:none; border:1px solid #5b5b50; color:var(--paper); font-family:var(--mono);
+    font-size:11px; padding:5px 10px; cursor:pointer; border-radius:2px;
+  }
+  .filebar button:hover{background:#33352c;}
+
+  .stat-row{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line); margin-bottom:24px;}
+  .stat{background:var(--panel); padding:16px 18px;}
+  .stat .num{font-family:var(--serif); font-size:28px; font-weight:700; line-height:1;}
+  .stat .lbl{font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:#7a7a70; margin-top:6px;}
+  .stat.warn .num{color:var(--rust);}
+  .stat.ok .num{color:var(--moss);}
+
+  .section-title{
+    font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.12em;
+    color:var(--moss); border-bottom:1px solid var(--line); padding-bottom:6px; margin:32px 0 14px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+
+  .options{display:flex; gap:18px; flex-wrap:wrap; background:var(--panel); border:1px solid var(--line); padding:14px 16px; margin-bottom:18px;}
+  .opt{display:flex; align-items:center; gap:7px; font-size:12.5px;}
+  .opt input{accent-color:var(--moss);}
+  .runbtn{
+    margin-left:auto; background:var(--moss); color:#fff; border:none; padding:8px 18px;
+    font-family:var(--sans); font-weight:600; font-size:12.5px; cursor:pointer; border-radius:2px;
+  }
+  .runbtn:hover{background:#34492f;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px; background:var(--panel);}
+  th,td{border:1px solid var(--line); padding:6px 9px; text-align:left; white-space:nowrap;}
+  th{background:#efece1; font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:#54544a;}
+  .tablewrap{overflow-x:auto; border:1px solid var(--line); max-height:340px; overflow-y:auto;}
+  td.miss{color:var(--rust); font-family:var(--mono);}
+  td.num{font-family:var(--mono);}
+
+  .miss-bar-bg{background:#eee; border-radius:2px; height:6px; width:100%; overflow:hidden;}
+  .miss-bar-fill{background:var(--rust); height:100%;}
+
+  .log{
+    background:var(--ink); color:#cfe0cf; font-family:var(--mono); font-size:11.5px;
+    padding:14px 16px; max-height:260px; overflow-y:auto; border-radius:2px; line-height:1.7;
+  }
+  .log .t{color:#8a8a78; margin-right:8px;}
+
+  .downloads{display:flex; gap:10px; flex-wrap:wrap; margin-top:6px;}
+  .dl-btn{
+    border:1px solid var(--ink); background:var(--panel); color:var(--ink); padding:9px 16px;
+    font-family:var(--sans); font-weight:600; font-size:12.5px; cursor:pointer; border-radius:2px;
+  }
+  .dl-btn:hover{background:var(--ink); color:var(--paper);}
+  .dl-btn.primary{background:var(--moss); border-color:var(--moss); color:#fff;}
+  .dl-btn.primary:hover{background:#34492f;}
+
+  .charts{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+  .chart-card{background:var(--panel); border:1px solid var(--line); padding:14px 16px;}
+  .chart-card h3{margin:0 0 10px; font-family:var(--serif); font-size:14px; font-weight:600;}
+  @media (max-width:720px){.charts{grid-template-columns:1fr;} .stat-row{grid-template-columns:repeat(2,1fr);}}
+
+  .bar-row{display:flex; align-items:center; gap:8px; margin-bottom:7px; font-size:11.5px;}
+  .bar-row .label{width:90px; font-family:var(--mono); color:#5a5a52; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .bar-row .track{flex:1; background:#eee; height:14px; border-radius:2px; overflow:hidden;}
+  .bar-row .fill{height:100%; background:var(--amber);}
+  .bar-row .val{font-family:var(--mono); width:36px; text-align:right; color:#5a5a52;}
+
+  footer{margin-top:48px; font-size:11.5px; color:#9b9b8e; font-family:var(--mono); border-top:1px solid var(--line); padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <p class="eyebrow">Local · No upload · Runs in your browser</p>
+      <h1>Data Cleaning &amp; Reporting</h1>
+      <p>Drop in a CSV or Excel file — get a profiled, cleaned dataset and a summary report back out.</p>
+    </div>
+  </header>
+
+  <div class="dropzone" id="dropzone">
+    <div class="dz-icon">[ + ]</div>
+    <h2>Drop a file here, or click to browse</h2>
+    <p>.csv · .xlsx · .xls — processed entirely on your device</p>
+    <input type="file" id="fileInput" accept=".csv,.xlsx,.xls">
+  </div>
+
+  <div id="app">
+    <div class="filebar">
+      <span id="fileLabel"></span>
+      <button id="resetBtn">Load a different file</button>
+    </div>
+
+    <div class="options">
+      <label class="opt"><input type="checkbox" id="optBlanks" checked> Normalize blank placeholders</label>
+      <label class="opt"><input type="checkbox" id="optCase" checked> Fix inconsistent casing</label>
+      <label class="opt"><input type="checkbox" id="optImpute" checked> Fill missing values (median / mode)</label>
+      <label class="opt"><input type="checkbox" id="optDupes" checked> Remove duplicate rows</label>
+      <button class="runbtn" id="runBtn">Run cleaning</button>
+    </div>
+
+    <div class="stat-row" id="statRow"></div>
+
+    <div class="section-title">Column profile (before cleaning)</div>
+    <div class="tablewrap"><table id="profileTable"></table></div>
+
+    <div id="resultsArea" style="display:none;">
+      <div class="section-title">Cleaning log</div>
+      <div class="log" id="logBox"></div>
+
+      <div class="section-title">Visual summary</div>
+      <div class="charts">
+        <div class="chart-card">
+          <h3>Missing values by column</h3>
+          <div id="missingChart"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Outliers detected (IQR method)</h3>
+          <div id="outlierChart"></div>
+        </div>
+      </div>
+
+      <div class="section-title">Cleaned data preview</div>
+      <div class="tablewrap"><table id="cleanedTable"></table></div>
+
+      <div class="section-title">Download</div>
+      <div class="downloads">
+        <button class="dl-btn primary" id="dlCsv">Cleaned data (.csv)</button>
+        <button class="dl-btn" id="dlXlsx">Cleaned data (.xlsx)</button>
+        <button class="dl-btn" id="dlLog">Cleaning log (.txt)</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>data-cleaning-automation · all processing happens locally in this browser tab, nothing is uploaded</footer>
+</div>
+
+<script>
+let rawRows = [], headers = [], cleanedRows = null, logLines = [];
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const app = document.getElementById('app');
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('drag');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+document.getElementById('resetBtn').addEventListener('click', () => location.reload());
+
+function handleFile(file) {
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.csv')) {
+    Papa.parse(file, {
+      header: true, skipEmptyLines: true, dynamicTyping: true,
+      complete: res => loadData(res.data, file.name)
+    });
+  } else {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(sheet, {defval:null});
+      loadData(data, file.name);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+function loadData(data, fname) {
+  if (!data.length) { alert('No rows found in file.'); return; }
+  rawRows = data;
+  headers = Object.keys(data[0]);
+  document.getElementById('fileLabel').textContent = `${fname} — ${data.length} rows × ${headers.length} columns`;
+  dropzone.style.display = 'none';
+  app.classList.add('show');
+  renderProfile(rawRows, 'profileTable');
+  renderStats(rawRows, false);
+  document.getElementById('resultsArea').style.display = 'none';
+}
+
+const BLANK_TOKENS = new Set(['', 'na', 'n/a', 'null', 'none', '-', 'nan', 'undefined']);
+
+function isBlankToken(v) {
+  if (v === null || v === undefined) return true;
+  if (typeof v === 'string') return BLANK_TOKENS.has(v.trim().toLowerCase());
+  return false;
+}
+
+function profileData(rows) {
+  const n = rows.length;
+  return headers.map(col => {
+    let missing = 0, numericCount = 0, vals = new Set();
+    rows.forEach(r => {
+      const v = r[col];
+      if (isBlankToken(v)) missing++;
+      else {
+        vals.add(typeof v === 'string' ? v.trim() : v);
+        if (typeof v === 'number' && !isNaN(v)) numericCount++;
+      }
+    });
+    const nonMissing = n - missing;
+    const isNumeric = nonMissing > 0 && numericCount / nonMissing > 0.8;
+    return {
+      col, missing, missingPct: n ? (missing/n*100) : 0,
+      unique: vals.size, isNumeric
+    };
+  });
+}
+
+function renderStats(rows, isCleaned) {
+  const profile = profileData(rows);
+  const totalMissing = profile.reduce((a,p)=>a+p.missing,0);
+  const dupes = countDuplicates(rows);
+  const cells = [
+    {num: rows.length, lbl: 'Rows', cls:''},
+    {num: headers.length, lbl: 'Columns', cls:''},
+    {num: totalMissing, lbl: 'Missing values', cls: totalMissing>0 ? 'warn':'ok'},
+    {num: dupes, lbl: 'Duplicate rows', cls: dupes>0 ? 'warn':'ok'},
+  ];
+  document.getElementById('statRow').innerHTML = cells.map(c =>
+    `<div class="stat ${c.cls}"><div class="num">${c.num}</div><div class="lbl">${c.lbl}</div></div>`
+  ).join('');
+}
+
+function countDuplicates(rows) {
+  const seen = new Set(); let dupes = 0;
+  rows.forEach(r => {
+    const key = JSON.stringify(headers.map(h => r[h]));
+    if (seen.has(key)) dupes++; else seen.add(key);
+  });
+  return dupes;
+}
+
+function renderProfile(rows, tableId) {
+  const profile = profileData(rows);
+  let html = '<tr><th>Column</th><th>Type</th><th>Missing</th><th>Missing %</th><th>Unique values</th></tr>';
+  profile.forEach(p => {
+    html += `<tr>
+      <td>${p.col}</td>
+      <td>${p.isNumeric ? 'numeric' : 'text'}</td>
+      <td class="${p.missing>0?'miss':'num'}">${p.missing}</td>
+      <td>
+        <div class="miss-bar-bg"><div class="miss-bar-fill" style="width:${Math.min(p.missingPct,100)}%"></div></div>
+        <span style="font-family:var(--mono);font-size:10.5px;">${p.missingPct.toFixed(1)}%</span>
+      </td>
+      <td class="num">${p.unique}</td>
+    </tr>`;
+  });
+  document.getElementById(tableId).innerHTML = html;
+}
+
+function log(msg) {
+  const t = new Date().toLocaleTimeString();
+  logLines.push(`[${t}] ${msg}`);
+}
+
+function median(arr) {
+  const s = [...arr].sort((a,b)=>a-b);
+  const mid = Math.floor(s.length/2);
+  return s.length % 2 ? s[mid] : (s[mid-1]+s[mid])/2;
+}
+
+function mode(arr) {
+  const counts = {};
+  arr.forEach(v => counts[v] = (counts[v]||0)+1);
+  let best=null, bestC=-1;
+  for (const k in counts) if (counts[k]>bestC){best=k;bestC=counts[k];}
+  return best;
+}
+
+function runCleaning() {
+  logLines = [];
+  const optBlanks = document.getElementById('optBlanks').checked;
+  const optCase = document.getElementById('optCase').checked;
+  const optImpute = document.getElementById('optImpute').checked;
+  const optDupes = document.getElementById('optDupes').checked;
+
+  let rows = rawRows.map(r => ({...r}));
+  log(`Starting pipeline on ${rows.length} rows × ${headers.length} columns`);
+
+  const profile = profileData(rows);
+
+  // 1. Normalize blanks + trim whitespace
+  if (optBlanks) {
+    headers.forEach(col => {
+      let n = 0;
+      rows.forEach(r => {
+        if (isBlankToken(r[col])) { if (r[col] !== null) n++; r[col] = null; }
+        else if (typeof r[col] === 'string') r[col] = r[col].trim();
+      });
+      if (n>0) log(`Column '${col}': normalized ${n} blank/placeholder values to null`);
+    });
+  }
+
+  // 2. Fix inconsistent casing for low-cardinality text columns
+  if (optCase) {
+    headers.forEach(col => {
+      const isNumeric = profile.find(p=>p.col===col)?.isNumeric;
+      if (isNumeric) return;
+      const nonNull = rows.map(r=>r[col]).filter(v=>v!==null && v!==undefined && typeof v==='string');
+      const uniqueRaw = new Set(nonNull);
+      if (uniqueRaw.size === 0 || uniqueRaw.size > 30) return;
+      const lowerGroups = {};
+      nonNull.forEach(v => { const k=v.toLowerCase(); (lowerGroups[k]=lowerGroups[k]||[]).push(v); });
+      if (Object.keys(lowerGroups).length < uniqueRaw.size) {
+        const canonical = {};
+        Object.keys(lowerGroups).forEach(k => canonical[k] = mode(lowerGroups[k]));
+        let changed = 0;
+        rows.forEach(r => {
+          const v = r[col];
+          if (typeof v === 'string') {
+            const c = canonical[v.toLowerCase()];
+            if (c !== undefined && c !== v) { r[col] = c; changed++; }
+          }
+        });
+        if (changed>0) log(`Column '${col}': standardized casing for ${changed} values (${uniqueRaw.size} → ${Object.keys(lowerGroups).length} categories)`);
+      }
+    });
+  }
+
+  // 3. Impute missing values
+  if (optImpute) {
+    headers.forEach(col => {
+      const total = rows.length;
+      const missingCount = rows.filter(r => r[col]===null || r[col]===undefined).length;
+      if (missingCount === 0) return;
+      const missingPct = missingCount/total*100;
+      if (missingPct > 50) { log(`Column '${col}': ${missingPct.toFixed(1)}% missing — too sparse to impute, left as-is`); return; }
+      const isNumeric = profile.find(p=>p.col===col)?.isNumeric;
+      if (isNumeric) {
+        const nums = rows.map(r=>r[col]).filter(v=>typeof v==='number' && !isNaN(v));
+        const m = median(nums);
+        rows.forEach(r => { if (r[col]===null || r[col]===undefined) r[col]=m; });
+        log(`Column '${col}': filled ${missingPct.toFixed(1)}% missing numeric values with median (${m.toFixed(2)})`);
+      } else {
+        const vals = rows.map(r=>r[col]).filter(v=>v!==null && v!==undefined);
+        if (vals.length===0) return;
+        const m = mode(vals);
+        rows.forEach(r => { if (r[col]===null || r[col]===undefined) r[col]=m; });
+        log(`Column '${col}': filled ${missingPct.toFixed(1)}% missing values with mode ('${m}')`);
+      }
+    });
+  }
+
+  // 4. Remove duplicates
+  if (optDupes) {
+    const before = rows.length;
+    const seen = new Set();
+    rows = rows.filter(r => {
+      const key = JSON.stringify(headers.map(h=>r[h]));
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    });
+    log(`Removed ${before-rows.length} duplicate rows (${before} → ${rows.length})`);
+  }
+
+  // 5. Outlier detection (report only)
+  const outlierSummary = {};
+  headers.forEach(col => {
+    const isNumeric = profile.find(p=>p.col===col)?.isNumeric;
+    if (!isNumeric) return;
+    const nums = rows.map(r=>r[col]).filter(v=>typeof v==='number' && !isNaN(v)).sort((a,b)=>a-b);
+    if (nums.length < 4) return;
+    const q1 = nums[Math.floor(nums.length*0.25)];
+    const q3 = nums[Math.floor(nums.length*0.75)];
+    const iqr = q3-q1;
+    const lower = q1-1.5*iqr, upper = q3+1.5*iqr;
+    const count = nums.filter(v=>v<lower||v>upper).length;
+    if (count>0) { outlierSummary[col]=count; log(`Column '${col}': ${count} potential outliers detected (outside [${lower.toFixed(2)}, ${upper.toFixed(2)}])`); }
+  });
+
+  log('Pipeline complete');
+  cleanedRows = rows;
+
+  document.getElementById('logBox').innerHTML = logLines.map(l => {
+    const idx = l.indexOf(']');
+    return `<div><span class="t">${l.slice(0,idx+1)}</span>${l.slice(idx+1)}</div>`;
+  }).join('');
+
+  renderProfile(rows, 'cleanedTable');
+  document.getElementById('cleanedTable').querySelector('tr').remove(); // placeholder, replaced below
+  renderCleanedPreview(rows);
+  renderMissingChart(profileData(rows));
+  renderOutlierChart(outlierSummary);
+  renderStats(rows, true);
+
+  document.getElementById('resultsArea').style.display = 'block';
+}
+
+function renderCleanedPreview(rows) {
+  const previewRows = rows.slice(0, 15);
+  let html = '<tr>' + headers.map(h=>`<th>${h}</th>`).join('') + '</tr>';
+  previewRows.forEach(r => {
+    html += '<tr>' + headers.map(h => `<td>${r[h] === null || r[h]===undefined ? '' : r[h]}</td>`).join('') + '</tr>';
+  });
+  document.getElementById('cleanedTable').innerHTML = html;
+}
+
+function renderMissingChart(profile) {
+  const missingCols = profile.filter(p=>p.missing>0).sort((a,b)=>b.missingPct-a.missingPct);
+  const el = document.getElementById('missingChart');
+  if (missingCols.length === 0) { el.innerHTML = '<p style="color:#7a7a70;font-size:12px;">No missing values remain.</p>'; return; }
+  el.innerHTML = missingCols.map(p => `
+    <div class="bar-row">
+      <div class="label">${p.col}</div>
+      <div class="track"><div class="fill" style="width:${Math.min(p.missingPct,100)}%; background:var(--rust);"></div></div>
+      <div class="val">${p.missingPct.toFixed(0)}%</div>
+    </div>`).join('');
+}
+
+function renderOutlierChart(outliers) {
+  const el = document.getElementById('outlierChart');
+  const entries = Object.entries(outliers);
+  if (entries.length === 0) { el.innerHTML = '<p style="color:#7a7a70;font-size:12px;">No significant outliers detected.</p>'; return; }
+  const max = Math.max(...entries.map(e=>e[1]));
+  el.innerHTML = entries.map(([col,count]) => `
+    <div class="bar-row">
+      <div class="label">${col}</div>
+      <div class="track"><div class="fill" style="width:${(count/max*100)}%"></div></div>
+      <div class="val">${count}</div>
+    </div>`).join('');
+}
+
+document.getElementById('runBtn').addEventListener('click', runCleaning);
+
+function download(filename, content, mime) {
+  const blob = new Blob([content], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('dlCsv').addEventListener('click', () => {
+  if (!cleanedRows) return;
+  const csv = Papa.unparse(cleanedRows);
+  download('cleaned_data.csv', csv, 'text/csv');
+});
+
+document.getElementById('dlXlsx').addEventListener('click', () => {
+  if (!cleanedRows) return;
+  const ws = XLSX.utils.json_to_sheet(cleanedRows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Cleaned Data');
+  XLSX.writeFile(wb, 'cleaned_data.xlsx');
+});
+
+document.getElementById('dlLog').addEventListener('click', () => {
+  download('cleaning_log.txt', logLines.join('\n'), 'text/plain');
+});
+</script>
+</body>
+</html>
